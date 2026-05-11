@@ -23,7 +23,6 @@ app.post('/extract', (req, res) => {
     const id = Date.now().toString();
     const outputPath = path.join(AUDIO_DIR, `${id}.mp3`);
 
-    // Get metadata first
     let title = 'TikTok Sound';
     let creator = 'Unknown';
     try {
@@ -38,7 +37,6 @@ app.post('/extract', (req, res) => {
       console.log('Metadata fetch failed, using defaults');
     }
 
-    // Download audio
     execSync(
       `/opt/homebrew/bin/yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" "${url}"`,
       { timeout: 60000 }
@@ -50,7 +48,7 @@ app.post('/extract', (req, res) => {
 
     res.json({
       id,
-      audioUrl: `http://192.168.1.128:3000/audio/${id}.mp3`,
+      audioUrl: `https://looplib-server-production.up.railway.app/audio/${id}.mp3`,
       title,
       creator
     });
