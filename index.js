@@ -27,7 +27,7 @@ app.post('/extract', (req, res) => {
     let creator = 'Unknown';
     try {
       const metaRaw = execSync(
-        `/opt/homebrew/bin/yt-dlp --print "%(title)s|||%(uploader)s" --no-download "${url}"`,
+        `yt-dlp --print "%(title)s|||%(uploader)s" --no-download "${url}"`,
         { timeout: 30000 }
       ).toString().trim();
       const parts = metaRaw.split('|||');
@@ -38,7 +38,7 @@ app.post('/extract', (req, res) => {
     }
 
     execSync(
-      `/opt/homebrew/bin/yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" "${url}"`,
+      `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" "${url}"`,
       { timeout: 60000 }
     );
 
