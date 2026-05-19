@@ -5,6 +5,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
 const app = express();
 app.use(cors());
@@ -14,6 +15,15 @@ const AUDIO_DIR = path.join(__dirname, 'audio');
 if (!fs.existsSync(AUDIO_DIR)) fs.mkdirSync(AUDIO_DIR);
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+const r2 = new S3Client({
+  region: 'auto',
+  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  },
+});
 
 async function initDb() {
   await pool.query(`
@@ -36,10 +46,10 @@ app.post('/extract', async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'No URL provided' });
 
-  try {
-    const id = Date.now().toString();
-    const outputPath = path.join(AUDIO_DIR, `${id}.mp3`);
+  const id = Date.now().toString();
+  const tmpPath = path.join(AUDIO_DIR, `${id}.mp3`);
 
+  try {
     let title = 'TikTok Sound';
     let creator = 'Unknown';
     try {
@@ -55,15 +65,24 @@ app.post('/extract', async (req, res) => {
     }
 
     execSync(
-      `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" "${url}"`,
+      `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${tmpPath}" "${url}"`,
       { timeout: 60000 }
     );
 
-    if (!fs.existsSync(outputPath)) {
+    if (!fs.existsSync(tmpPath)) {
       return res.status(500).json({ error: 'Audio extraction failed' });
     }
 
-    const audioUrl = `https://looplib-server-production.up.railway.app/audio/${id}.mp3`;
+    await r2.send(new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: `${id}.mp3`,
+      Body: fs.readFileSync(tmpPath),
+      ContentType: 'audio/mpeg',
+    }));
+
+    fs.unlinkSync(tmpPath);
+
+    const audioUrl = `${process.env.R2_PUBLIC_URL}/${id}.mp3`;
 
     await pool.query(
       `INSERT INTO tracks (id, title, creator, audio_url) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING`,
@@ -74,6 +93,7 @@ app.post('/extract', async (req, res) => {
 
   } catch (err) {
     console.error(err);
+    if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
     res.status(500).json({ error: 'Failed to extract audio' });
   }
 });
@@ -95,8 +115,6 @@ app.get('/search', async (req, res) => {
     res.status(500).json({ error: 'Search failed' });
   }
 });
-
-app.use('/audio', express.static(AUDIO_DIR));
 
 initDb().then(() => {
   app.listen(3000, () => {
