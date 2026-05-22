@@ -51,8 +51,12 @@ app.get('/yt-dlp-version', (req, res) => {
 app.post('/extract', async (req, res) => {
   let { url } = req.body;
 if (!url) return res.status(400).json({ error: 'No URL provided' });
-// Strip tracking parameters from URL
-try { const u = new URL(url); u.search = ''; url = u.toString(); } catch(e) {}
+// Follow redirects to get full URL (handles tiktok.com/t/ short links)
+try {
+  const { execSync: exec } = require('child_process');
+  const resolved = execSync(`curl -Ls -o /dev/null -w "%{url_effective}" "${url}"`).toString().trim();
+  if (resolved) url = resolved;
+} catch(e) {}
 
   const id = Date.now().toString();
   const tmpPath = path.join(AUDIO_DIR, `${id}.mp3`);
@@ -62,8 +66,7 @@ try { const u = new URL(url); u.search = ''; url = u.toString(); } catch(e) {}
     let creator = 'Unknown';
     try {
       const metaRaw = execSync(
-        `yt-dlp --print "%(title)s|||%(uploader)s" --no-download --no-playlist --use-extractors TikTokVM,TikTok,TikTokUser "${url}"`,
-        { timeout: 30000 }
+`yt-dlp --print "%(title)s|||%(uploader)s" --no-download --no-playlist "${url}"`,        { timeout: 30000 }
       ).toString().trim();
       const parts = metaRaw.split('|||');
       if (parts[0]) title = parts[0].trim();
@@ -73,8 +76,7 @@ try { const u = new URL(url); u.search = ''; url = u.toString(); } catch(e) {}
     }
 
    execSync(
-`yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist --use-extractors TikTokVM,TikTok,TikTokUser -o "${tmpPath}" "${url}"`,    );
-
+`yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist -o "${tmpPath}" "${url}"`,
     if (!fs.existsSync(tmpPath)) {
       return res.status(500).json({ error: 'Audio extraction failed' });
     }
