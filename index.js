@@ -49,8 +49,10 @@ app.get('/yt-dlp-version', (req, res) => {
 });
 
 app.post('/extract', async (req, res) => {
-  const { url } = req.body;
-  if (!url) return res.status(400).json({ error: 'No URL provided' });
+  let { url } = req.body;
+if (!url) return res.status(400).json({ error: 'No URL provided' });
+// Strip tracking parameters from URL
+try { const u = new URL(url); u.search = ''; url = u.toString(); } catch(e) {}
 
   const id = Date.now().toString();
   const tmpPath = path.join(AUDIO_DIR, `${id}.mp3`);
@@ -60,7 +62,7 @@ app.post('/extract', async (req, res) => {
     let creator = 'Unknown';
     try {
       const metaRaw = execSync(
-        `yt-dlp --print "%(title)s|||%(uploader)s" --no-download --no-playlist --extractor-args "tiktok:api_hostname=api16-normal-c-useast1a.tiktokv.com" "${url}"`,
+        `yt-dlp --print "%(title)s|||%(uploader)s" --no-download --no-playlist "${url}"`
         { timeout: 30000 }
       ).toString().trim();
       const parts = metaRaw.split('|||');
@@ -71,7 +73,7 @@ app.post('/extract', async (req, res) => {
     }
 
     execSync(
-      `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist --extractor-args "tiktok:api_hostname=api16-normal-c-useast1a.tiktokv.com" -o "${tmpPath}" "${url}"`,
+     `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist -o "${tmpPath}" "${url}"`
       { timeout: 60000 }
     );
 
