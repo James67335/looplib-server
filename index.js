@@ -55,12 +55,12 @@ app.post('/extract', async (req, res) => {
   let { url } = req.body;
   if (!url) return res.status(400).json({ error: 'No URL provided' });
 
-  // Resolve short URLs and strip tracking params
+   // Resolve short URLs, strip tracking params, rewrite /photo/ to /video/
   try {
     const resolved = execSync(`curl -Ls -o /dev/null -w "%{url_effective}" "${url}"`).toString().trim();
     if (resolved) {
       const u = new URL(resolved);
-      url = `${u.origin}${u.pathname}`;
+      url = `${u.origin}${u.pathname}`.replace('/photo/', '/video/');
     }
   } catch (e) {}
 
