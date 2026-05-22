@@ -62,7 +62,7 @@ try { const u = new URL(url); u.search = ''; url = u.toString(); } catch(e) {}
     let creator = 'Unknown';
     try {
       const metaRaw = execSync(
-        `yt-dlp --print "%(title)s|||%(uploader)s" --no-download --no-playlist "${url}"`
+        `yt-dlp --print "%(title)s|||%(uploader)s" --no-download --no-playlist "${url}"`,
         { timeout: 30000 }
       ).toString().trim();
       const parts = metaRaw.split('|||');
@@ -72,8 +72,8 @@ try { const u = new URL(url); u.search = ''; url = u.toString(); } catch(e) {}
       console.log('Metadata fetch failed, using defaults');
     }
 
-    execSync(
-     `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist -o "${tmpPath}" "${url}"`
+   execSync(
+      `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist -o "${tmpPath}" "${url}"`,
       { timeout: 60000 }
     );
 
