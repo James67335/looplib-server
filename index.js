@@ -55,10 +55,13 @@ app.post('/extract', async (req, res) => {
   let { url } = req.body;
   if (!url) return res.status(400).json({ error: 'No URL provided' });
 
-  // Resolve short URLs (tiktok.com/t/) to full URL
+  // Resolve short URLs and strip tracking params
   try {
     const resolved = execSync(`curl -Ls -o /dev/null -w "%{url_effective}" "${url}"`).toString().trim();
-    if (resolved) url = resolved;
+    if (resolved) {
+      const u = new URL(resolved);
+      url = `${u.origin}${u.pathname}`;
+    }
   } catch (e) {}
 
   const id = Date.now().toString();
