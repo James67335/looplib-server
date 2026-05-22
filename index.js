@@ -62,7 +62,7 @@ try { const u = new URL(url); u.search = ''; url = u.toString(); } catch(e) {}
     let creator = 'Unknown';
     try {
       const metaRaw = execSync(
-        `yt-dlp --print "%(title)s|||%(uploader)s" --no-download --no-playlist --user-agent "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1" "${url}"`,
+        `yt-dlp --print "%(title)s|||%(uploader)s" --no-download --no-playlist --use-extractors TikTok,TikTokUser "${url}"`,
         { timeout: 30000 }
       ).toString().trim();
       const parts = metaRaw.split('|||');
@@ -73,8 +73,7 @@ try { const u = new URL(url); u.search = ''; url = u.toString(); } catch(e) {}
     }
 
    execSync(
-`yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist --user-agent "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1" -o "${tmpPath}" "${url}"`,      { timeout: 60000 }
-    );
+`yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist --use-extractors TikTok,TikTokUser -o "${tmpPath}" "${url}"`,    );
 
     if (!fs.existsSync(tmpPath)) {
       return res.status(500).json({ error: 'Audio extraction failed' });
