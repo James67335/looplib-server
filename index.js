@@ -38,8 +38,14 @@ async function initDb() {
   console.log('Database ready');
 }
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+
+app.get('/yt-dlp-version', (req, res) => {
+  try {
+    const version = execSync('yt-dlp --version').toString().trim();
+    res.json({ version });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/extract', async (req, res) => {
