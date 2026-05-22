@@ -1,15 +1,15 @@
 FROM node:18-slim
 
-# Install ffmpeg
+# Install ffmpeg, curl, python3, pip
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     curl \
+    python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Install yt-dlp as a standalone binary (cache-bust: 2026-05-22b)
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-    -o /usr/local/bin/yt-dlp \
-    && chmod a+rx /usr/local/bin/yt-dlp
+# Install latest yt-dlp via pip (always pulls latest)
+RUN pip3 install -U yt-dlp --break-system-packages
 
 WORKDIR /app
 
