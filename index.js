@@ -100,7 +100,11 @@ try { const u = new URL(url); u.search = ''; url = u.toString(); } catch(e) {}
     res.json({ id, audioUrl, title, creator });
 
   } catch (err) {
-    console.error(err);
+    const stdout = err.stdout ? err.stdout.toString() : '';
+    const stderr = err.stderr ? err.stderr.toString() : '';
+    console.error('EXTRACTION ERROR:', err.message);
+    console.error('STDOUT:', stdout);
+    console.error('STDERR:', stderr);
     if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
     res.status(500).json({ error: 'Failed to extract audio' });
   }
