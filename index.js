@@ -138,6 +138,82 @@ app.get('/search', async (req, res) => {
   }
 });
 
+app.post('/process', async (req, res) => {
+  const { audioUrl, trimStart, trimEnd, speed, bass, volume } = req.body;
+  if (!audioUrl) return res.status(400).json({ error: 'No audioUrl provided' });
+
+  const id = Date.now().toString();
+  const tmpInput = path.join(AUDIO_DIR, `input_${id}.mp3`);
+  const tmpOutput = path.join(AUDIO_DIR, `output_${id}.mp3`);
+
+  try {
+    // Download original from R2
+    const { execSync: exec } = require('child_process');
+    execSync(`curl -s -o "${tmpInput}" "${audioUrl}"`, { timeout: 30000 });
+
+    if (!fs.existsSync(tmpInput)) {
+      return res.status(500).json({ error: 'Failed to download audio' });
+    }
+
+    // Get duration for trim calculation
+    const durationRaw = execSync(
+      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${tmpInput}"`
+    ).toString().trim();
+    const totalDuration = parseFloat(durationRaw);
+
+    const start = (trimStart ?? 0) * totalDuration;
+    const end = (trimEnd ?? 1) * totalDuration;
+    const speedVal = Math.max(0.5, Math.min(2.0, speed ?? 1.0));
+    const bassVal = Math.max(-10, Math.min(10, bass ?? 0));
+    const volumeVal = Math.max(0.5, Math.min(2.0, (volume ?? 100) / 100));
+
+    // Build ffmpeg filter chain
+    const filters = [];
+    filters.push(`atempo=${speedVal}`);
+    if (bassVal !== 0) {
+      const gain = bassVal > 0 ? bassVal * 3 : bassVal * 3;
+      filters.push(`equalizer=f=100:width_type=o:width=2:g=${gain}`);
+    }
+    filters.push(`volume=${volumeVal}`);
+
+    const filterStr = filters.join(',');
+
+    execSync(
+      `ffmpeg -y -ss ${start} -to ${end} -i "${tmpInput}" -af "${filterStr}" -codec:a libmp3lame -q:a 2 "${tmpOutput}"`,
+      { timeout: 120000 }
+    );
+
+    if (!fs.existsSync(tmpOutput)) {
+      return res.status(500).json({ error: 'Audio processing failed' });
+    }
+
+    // Upload processed file to R2
+    await r2.send(new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: `processed_${id}.mp3`,
+      Body: fs.readFileSync(tmpOutput),
+      ContentType: 'audio/mpeg',
+    }));
+
+    const processedUrl = `${process.env.R2_PUBLIC_URL}/processed_${id}.mp3`;
+
+    // Log to Postgres
+    await pool.query(
+      `INSERT INTO tracks (id, title, creator, audio_url) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING`,
+      [`processed_${id}`, 'Processed Sound', 'Spectr Studio', processedUrl]
+    );
+
+    res.json({ audioUrl: processedUrl });
+
+  } catch (err) {
+    console.error('PROCESS ERROR:', err.message);
+    res.status(500).json({ error: 'Failed to process audio' });
+  } finally {
+    if (fs.existsSync(tmpInput)) fs.unlinkSync(tmpInput);
+    if (fs.existsSync(tmpOutput)) fs.unlinkSync(tmpOutput);
+  }
+});
+
 initDb().then(() => {
   app.listen(3000, () => {
     console.log('LoopLib server running on port 3000');
