@@ -8,8 +8,11 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Install latest yt-dlp via pip (always pulls latest)
-RUN pip3 install -U yt-dlp --break-system-packages
+# Install latest yt-dlp via pip with curl-cffi (needed for TikTok impersonation)
+RUN pip3 install -U "yt-dlp[default,curl-cffi]" --break-system-packages
+
+# Build-time check: show yt-dlp version and available impersonation targets
+RUN yt-dlp --version && yt-dlp --list-impersonate-targets
 
 WORKDIR /app
 
